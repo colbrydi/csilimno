@@ -1,5 +1,5 @@
 #!/bin/bash --login
-#PBS -l walltime=04:00:00,nodes=1:ppn=1,feature=gbe,mem=2gb
+#PBS -l walltime=200:00:00,nodes=1:ppn=1,feature=gbe,mem=2gb
 #PBS -j oe
 #PBS -m e
 #PBS -t 1-12
@@ -7,12 +7,11 @@
 #Setup directories
 basedir=/mnt/research/csilimno
 inputdir=${basedir}/input
-outdir=${basedir}/output
 scriptdir=${basedir}/csilimno
 stopfile=${inputdir}/STOP_FILE
 
 # TODO sourt by file size
-files=`${inputdir}/*.tiff`
+files=`${inputdir}/*.fel.tiff`
 
 # Loop over files
 for file in ${files}
@@ -25,13 +24,11 @@ do
 
 	#Check next file
 	name=`basename $file`
-	outfile=${outdir}/$Name.fel.tiff	
+	outfile=${outdir}/$Name.p	
 	if [ ! -f ${outfile} ]
 		touch $outfile
-		infile=${outdir}/${file}
-		cp ${input}/${file} ${infile}
 		echo ${outfile}
-		time pitfill $infile
+		time flowdirection $infile
 	fi
 
 	#TODO Check time left
@@ -45,11 +42,11 @@ do
 	#	fi	
 	#	
 	#	#submit next job
-	#	qsub -t "" $arg ${scriptdir}/pitfill_small.qsub	
+	#	qsub -t "" $arg ${scriptdir}/flowdirection_small.qsub	
 	#	exit
 	#fi
 done
 
-#Finished looping though all input tiff files
-qsub ${scriptdir}/flowdirection_small.qsub
+#Finished looping though all inputs.  Try Starting over.
+qsub ${scriptdir}/pitfill_small.qsub
 
