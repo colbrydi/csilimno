@@ -2,31 +2,52 @@
 #PBS -l walltime=04:00:00,nodes=1:ppn=1,feature=gbe,mem=2gb
 #PBS -j oe
 #PBS -m e
+#PBS -t 1-12
 
-cd /mnt/research/csilimno
-
-input=/mnt/research/csilimno/input
-stopfile=${input}/STOP
+#Setup directories
+basedir=/mnt/research/csilimno
+inputdir=${basedir}/input
+outdir=${basedir}/output
+scriptdir=${basedir}/csilimno
+stopfile=${inputdir}/STOP_FILE
 
 # TODO sourt by file size
-files=`${input}/*.tiff`
+files=`${inputdir}/*.tiff`
 
 # Loop over files
 for file in ${files}
 do
+	#graceful stop
 	if [ -f ${stopfile} ]
 	then
 		exit
 	fi
+
+	#Check next file
 	name=`basename $file`
 	outfile=${outdir}/$Name.fel.tiff	
 	if [ ! -f ${outfile} ]
 		touch $outfile
 		echo ${outfile}
-		pitfill $infile
+		time pitfill $infile
 	fi
+
 	#TODO Check time left
+	#if [ tm * 2 < wtr ]
+	#then
+	#	# TODO see if we may go over 4 hour walltime 
+	#       if [ tm  > 2*60*60 ]
+	#	then
+	#		timearg="08:00:00"
+	#		arg="-l walltime=$timearg 
+	#	fi	
+	#	
+	#	#submit next job
+	#	qsub -t "" $arg ${scriptdir}/pitfill_small.qsub	
+	#	exit
+	#fi
 done
 
-qsub flowdirection_small.qsub
+#Finished looping though all input tiff files
+qsub ${scriptdir}/flowdirection_small.qsub
 
