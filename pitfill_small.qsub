@@ -1,0 +1,32 @@
+#!/bin/bash --login
+#PBS -l walltime=04:00:00,nodes=1:ppn=1,feature=gbe,mem=2gb
+#PBS -j oe
+#PBS -m e
+
+cd /mnt/research/csilimno
+
+input=/mnt/research/csilimno/input
+stopfile=${input}/STOP
+
+# TODO sourt by file size
+files=`${input}/*.tiff`
+
+# Loop over files
+for file in ${files}
+do
+	if [ -f ${stopfile} ]
+	then
+		exit
+	fi
+	name=`basename $file`
+	outfile=${outdir}/$Name.fel.tiff	
+	if [ ! -f ${outfile} ]
+		touch $outfile
+		echo ${outfile}
+		pitfill $infile
+	fi
+	#TODO Check time left
+done
+
+qsub flowdirection_small.qsub
+
