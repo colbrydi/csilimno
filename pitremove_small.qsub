@@ -21,6 +21,8 @@ cmd=pitremove
 # sort by file size
 files=`ls -S -r ${inputdir}/*.tif`
 
+total=0
+
 # Loop over source files
 for file in ${files}
 do
@@ -56,7 +58,8 @@ do
 			T=`tail -n 1 $timefile`
 			tm=$(( ${T%.*} * 2 ))
 			echo "###FINISHED $cmd $file time=$tm size=$FILESIZE node=${HOSTNAME}"
-	
+			total=$(( $total + 1 ))
+			
 			echo "Last time $tm : wtr $wtr : walltime $walltime"
 	
 			if [ $tm -gt $wtr ]
@@ -77,6 +80,13 @@ do
 done
 
 echo "No more files to process"
-#Finished looping though all inputs.  Try Starting over.
-#qsub -t "" ${scriptdir}/flowdirection_small.qsub	
+
+if [ $total -gt 0 ]
+then
+	echo "Total of $total files processed.  starting next stage"
+	#Finished looping though all inputs.  Try Starting over.
+	qsub ${scriptdir}/d8flowdir.qsub	
+fi
+
+
 

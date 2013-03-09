@@ -17,6 +17,7 @@ scriptdir=${basedir}/csilimno
 stopfile=${PBS_O_WORKDIR}/STOP_FILE
 timefile=${PBS_O_WORKDIR}/${PBS_JOBID}.tm
 cmd=d8flowdir
+total=0
 
 # sort by file size
 files=`ls -S -r ${workdir}/*fel.tif`
@@ -36,7 +37,7 @@ do
 	name=`basename $file`
 	root=${name%fel.tif}
 	infile=${workdir}/${root}.tif	
-	outfile=${workdir}/${root}.p
+	outfile=${workdir}/${root}p.tif
 	if [ ! -f ${outfile} ]
 	then
 		touch $outfile
@@ -47,6 +48,7 @@ do
 		if [ $FILESIZE -gt 0 ]
 		then
 			time ( $cmd $infile ) 2> $timefile
+			total=$(( $total + 1 ))
 
 			#Check time left
 			source /opt/software/powertools/doc/jobvars
@@ -76,7 +78,13 @@ do
 	fi
 done
 
+
 echo "No more files to process"
-#Finished looping though all inputs.  Try Starting over.
-#qsub -t "" ${scriptdir}/flowdirection_small.qsub	
+
+if [ $total -gt 0 ]
+then
+        echo "Total of $total files processed.  starting next stage"
+        #Finished looping though all inputs.  Try Starting over.
+        qsub ${scriptdir}/pitremove_small.qsub        
+fi
 
