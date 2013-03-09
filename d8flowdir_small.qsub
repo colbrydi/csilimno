@@ -1,0 +1,82 @@
+#!/bin/bash --login
+#PBS -l walltime=04:00:00,nodes=1:ppn=1,feature=gbe,mem=2gb
+#PBS -j oe
+#PBS -m e
+
+module load powertools
+cd ${PBS_O_WORKDIR}
+
+#Setup directories
+basedir=/mnt/research/csilimno/dirk
+
+export PATH=${basedir}/taudem506/tools:$PATH
+
+inputdir=${basedir}/sampledata/translate/
+workdir=${basedir}/input
+scriptdir=${basedir}/csilimno
+stopfile=${PBS_O_WORKDIR}/STOP_FILE
+timefile=${PBS_O_WORKDIR}/${PBS_JOBID}.tm
+cmd=d8flowdir
+
+# sort by file size
+files=`ls -S -r ${workdir}/*fel.tif`
+
+# Loop over source files
+for file in ${files}
+do
+	#graceful stop
+	if [ -f ${stopfile} ]
+	then
+		exit
+	fi
+
+	echo "Checking File $file"
+
+	#Check next file
+	name=`basename $file`
+	root=${name%fel.tif}
+	infile=${workdir}/${root}.tif	
+	outfile=${workdir}/${root}.p
+	if [ ! -f ${outfile} ]
+	then
+		touch $outfile
+		echo ${outfile}
+		export TIMEFORMAT="%E"
+		FILESIZE=$(stat -c%s "$infile")
+		echo "SIZE=$FILESIZE"
+		if [ $FILESIZE -gt 0 ]
+		then
+			time ( $cmd $infile ) 2> $timefile
+
+			#Check time left
+			source /opt/software/powertools/doc/jobvars
+			walltime=`timeconvert ${PBS_WALLTIME}`
+			used=`timeconvert ${PBS_WALLTIME_USED}`
+			wtr=$(( $walltime - $used ))	
+			T=`tail -n 1 $timefile`
+			tm=$(( ${T%.*} * 2 ))
+			echo "###FINISHED $cmd $file time=$tm size=$FILESIZE node=${HOSTNAME}"
+	
+			echo "Last time $tm : wtr $wtr : walltime $walltime"
+
+			if [ $tm -gt $wtr ]
+			then
+				# TODO see if we may go over 4 hour walltime 
+			        if [ $(( $tm * 2 )) -gt "$walltime" ]
+				then
+					cores="2"
+					arg="-l nodes=$cores:ppn=1" 
+				fi	
+			
+				#submit next job
+				qsub -t "" ${args} ${scriptdir}/${cmd}_small.qsub
+				exit
+			fi
+		fi
+	fi
+done
+
+echo "No more files to process"
+#Finished looping though all inputs.  Try Starting over.
+#qsub -t "" ${scriptdir}/flowdirection_small.qsub	
+

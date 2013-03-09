@@ -14,8 +14,9 @@ export PATH=${basedir}/taudem506/tools:$PATH
 inputdir=${basedir}/sampledata/translate/
 workdir=${basedir}/input
 scriptdir=${basedir}/csilimno
-stopfile=${inputdir}/STOP_FILE
+stopfile=${PBS_O_WORKDIR}/STOP_FILE
 timefile=${PBS_O_WORKDIR}/${PBS_JOBID}.tm
+cmd=pitremove
 
 # sort by file size
 files=`ls -S -r ${inputdir}/*.tif`
@@ -43,31 +44,34 @@ do
 		export TIMEFORMAT="%E"
 		cp ${file} ${infile} 
 		FILESIZE=$(stat -c%s "$infile")
-		time ( pitremove $infile ) 2> $timefile
-
-		#Check time left
-		source /opt/software/powertools/doc/jobvars
-		walltime=`timeconvert ${PBS_WALLTIME}`
-		used=`timeconvert ${PBS_WALLTIME_USED}`
-		wtr=$(( $walltime - $used ))	
-		T=`tail -n 1 $timefile`
-		tm=$(( ${T%.*} * 2 ))
-		echo "###FINISHED $file time=$tm size=$FILESIZE node=${HOSTNAME}"
-
-		echo "Last time $tm : wtr $wtr : walltime $walltime"
-
-		if [ $tm -gt $wtr ]
-		then
-			# TODO see if we may go over 4 hour walltime 
-		        if [ $(( $tm * 2 )) -gt "$walltime" ]
+		if [ $FILESIZE .gt 0 ]
 			then
-				timearg="08:00:00"
-				arg="-l walltime=$timearg" 
-			fi	
-			
-			#submit next job
-			qsub -t "" ${args} ${scriptdir}/pitfill_small.qsub
-			exit
+			time ( $cmd $infile ) 2> $timefile
+	
+			#Check time left
+			source /opt/software/powertools/doc/jobvars
+			walltime=`timeconvert ${PBS_WALLTIME}`
+			used=`timeconvert ${PBS_WALLTIME_USED}`
+			wtr=$(( $walltime - $used ))	
+			T=`tail -n 1 $timefile`
+			tm=$(( ${T%.*} * 2 ))
+			echo "###FINISHED $cmd $file time=$tm size=$FILESIZE node=${HOSTNAME}"
+	
+			echo "Last time $tm : wtr $wtr : walltime $walltime"
+	
+			if [ $tm -gt $wtr ]
+			then
+				# TODO see if we may go over 4 hour walltime 
+			        if [ $(( $tm * 2 )) -gt "$walltime" ]
+				then
+					timearg="08:00:00"
+					arg="-l walltime=$timearg" 
+				fi	
+				
+				#submit next job
+				qsub -t "" ${args} ${scriptdir}/${cmd}_small.qsub
+				exit
+			fi
 		fi
 	fi
 done
