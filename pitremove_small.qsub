@@ -3,25 +3,11 @@
 #PBS -j oe
 #PBS -m e
 
-module load powertools
-cd ${PBS_O_WORKDIR}
-
-#Setup directories
-basedir=/mnt/research/csilimno/dirk
-
-export PATH=${basedir}/taudem506/tools:$PATH
-
-inputdir=${basedir}/sampledata/translate/
-workdir=${basedir}/input
-scriptdir=${basedir}/csilimno
-stopfile=${PBS_O_WORKDIR}/STOP_FILE
-timefile=${PBS_O_WORKDIR}/${PBS_JOBID}.tm
+source /mnt/research/csilimno/dirk/csilimno/setup.sh
 cmd=pitremove
 
 # sort by file size
 files=`ls -S -r ${inputdir}/*.tif`
-
-total=0
 
 # Loop over source files
 for file in ${files}
@@ -46,10 +32,16 @@ do
 		export TIMEFORMAT="%E"
 		cp ${file} ${infile} 
 		FILESIZE=$(stat -c%s "$infile")
-		if [ $FILESIZE .gt 0 ]
-			then
+		if [ $FILESIZE -gt 0 ]
+		then
 			time ( $cmd $infile ) 2> $timefile
-	
+                        if [ "$!" -ne "0" ]
+                        then
+                                echo "$cmd $infile"
+                                echo "Error Reported. Exiting"
+                                exit
+                        fi
+
 			#Check time left
 			source /opt/software/powertools/doc/jobvars
 			walltime=`timeconvert ${PBS_WALLTIME}`
@@ -59,7 +51,6 @@ do
 			tm=$(( ${T%.*} * 2 ))
 			echo "###FINISHED $cmd $file time=$tm size=$FILESIZE node=${HOSTNAME}"
 			total=$(( $total + 1 ))
-			
 			echo "Last time $tm : wtr $wtr : walltime $walltime"
 	
 			if [ $tm -gt $wtr ]
@@ -72,6 +63,7 @@ do
 				fi	
 				
 				#submit next job
+				cd ${PBS_O_WORKDIR}
 				qsub -t "" ${args} ${scriptdir}/${cmd}_small.qsub
 				exit
 			fi
@@ -83,8 +75,9 @@ echo "No more files to process"
 
 if [ $total -gt 0 ]
 then
-	echo "Total of $total files processed.  starting next stage"
-	#Finished looping though all inputs.  Try Starting over.
+        echo "Total of $total files processed.  starting next stage"
+        #Finished looping though all inputs.  Try Starting over.
+	cd ${PBS_O_WORKDIR}
 	qsub ${scriptdir}/d8flowdir.qsub	
 fi
 

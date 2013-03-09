@@ -6,18 +6,9 @@
 module load powertools
 cd ${PBS_O_WORKDIR}
 
-#Setup directories
-basedir=/mnt/research/csilimno/dirk
+source /mnt/research/csilimno/dirk/csilimno/setup.sh
 
-export PATH=${basedir}/taudem506/tools:$PATH
-
-inputdir=${basedir}/sampledata/translate/
-workdir=${basedir}/input
-scriptdir=${basedir}/csilimno
-stopfile=${PBS_O_WORKDIR}/STOP_FILE
-timefile=${PBS_O_WORKDIR}/${PBS_JOBID}.tm
 cmd=d8flowdir
-total=0
 
 # sort by file size
 files=`ls -S -r ${workdir}/*fel.tif`
@@ -36,6 +27,7 @@ do
 	#Check next file
 	name=`basename $file`
 	root=${name%fel.tif}
+	felfile=${workdir}/${root}fel.tif
 	infile=${workdir}/${root}.tif	
 	outfile=${workdir}/${root}p.tif
 	if [ ! -f ${outfile} ]
@@ -43,12 +35,17 @@ do
 		touch $outfile
 		echo ${outfile}
 		export TIMEFORMAT="%E"
-		FILESIZE=$(stat -c%s "$infile")
+		FILESIZE=$(stat -c%s "$felfile")
 		echo "SIZE=$FILESIZE"
 		if [ $FILESIZE -gt 0 ]
 		then
 			time ( $cmd $infile ) 2> $timefile
-			total=$(( $total + 1 ))
+			if [ "$!" -ne "0" ]
+			then	
+				echo "$cmd $infile"
+				echo "Error Reported. Exiting"
+				exit
+			fi
 
 			#Check time left
 			source /opt/software/powertools/doc/jobvars
@@ -58,7 +55,7 @@ do
 			T=`tail -n 1 $timefile`
 			tm=$(( ${T%.*} * 2 ))
 			echo "###FINISHED $cmd $file time=$tm size=$FILESIZE node=${HOSTNAME}"
-	
+			total=$(( $total + 1 ))
 			echo "Last time $tm : wtr $wtr : walltime $walltime"
 
 			if [ $tm -gt $wtr ]
@@ -71,6 +68,7 @@ do
 				fi	
 			
 				#submit next job
+				cd ${PBS_O_WORKDIR}
 				qsub -t "" ${args} ${scriptdir}/${cmd}_small.qsub
 				exit
 			fi
@@ -85,6 +83,7 @@ if [ $total -gt 0 ]
 then
         echo "Total of $total files processed.  starting next stage"
         #Finished looping though all inputs.  Try Starting over.
+	cd ${PBS_O_WORKDIR}
         qsub ${scriptdir}/pitremove_small.qsub        
 fi
 
