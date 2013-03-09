@@ -1,20 +1,26 @@
 #!/bin/bash --login
-#PBS -l walltime=04:00:00,nodes=1:ppn=1,feature=gbe,mem=2gb
+#PBS -l walltime=03:59:00,nodes=1:ppn=1,feature=gbe,mem=2gb
 #PBS -j oe
 #PBS -m e
-#PBS -t 1-12
+
+module load powertools
+cd ${PBS_O_WORKDIR}
 
 #Setup directories
-basedir=/mnt/research/csilimno
-inputdir=${basedir}/input
-outdir=${basedir}/output
+basedir=/mnt/research/csilimno/dirk
+
+export PATH=${basedir}/taudem506/tools:$PATH
+
+inputdir=${basedir}/sampledata/translate/
+workdir=${basedir}/input
 scriptdir=${basedir}/csilimno
 stopfile=${inputdir}/STOP_FILE
+timefile=${PBS_O_WORKDIR}/${PBS_JOBID}.tm
 
-# TODO sourt by file size
-files=`${inputdir}/*.tiff`
+# sort by file size
+files=`ls -S -r ${inputdir}/*.tif`
 
-# Loop over files
+# Loop over source files
 for file in ${files}
 do
 	#graceful stop
@@ -23,33 +29,50 @@ do
 		exit
 	fi
 
+	echo "Checking File $file"
+
 	#Check next file
 	name=`basename $file`
-	outfile=${outdir}/$Name.fel.tiff	
+	root=${name%.tif}
+	outfile=${workdir}/${root}fel.tif	
+	infile=${workdir}/${name}
 	if [ ! -f ${outfile} ]
+	then
 		touch $outfile
-		infile=${outdir}/${file}
-		cp ${input}/${file} ${infile}
 		echo ${outfile}
-		time pitfill $infile
-	fi
+		export TIMEFORMAT="%E"
+		cp ${file} ${infile} 
+		FILESIZE=$(stat -c%s "$infile")
+		time ( pitremove $infile ) 2> $timefile
 
-	#TODO Check time left
-	#if [ tm * 2 < wtr ]
-	#then
-	#	# TODO see if we may go over 4 hour walltime 
-	#       if [ tm  > 2*60*60 ]
-	#	then
-	#		timearg="08:00:00"
-	#		arg="-l walltime=$timearg 
-	#	fi	
-	#	
-	#	#submit next job
-	#	qsub -t "" $arg ${scriptdir}/pitfill_small.qsub	
-	#	exit
-	#fi
+		#Check time left
+		source /opt/software/powertools/doc/jobvars
+		walltime=`timeconvert ${PBS_WALLTIME}`
+		used=`timeconvert ${PBS_WALLTIME_USED}`
+		wtr=$(( $walltime - $used ))	
+		T=`tail -n 1 $timefile`
+		tm=$(( ${T%.*} * 2 ))
+		echo "###FINISHED $file time=$tm size=$FILESIZE node=${HOSTNAME}"
+
+		echo "Last time $tm : wtr $wtr : walltime $walltime"
+
+		if [ $tm -gt $wtr ]
+		then
+			# TODO see if we may go over 4 hour walltime 
+		        if [ $(( $tm * 2 )) -gt "$walltime" ]
+			then
+				timearg="08:00:00"
+				arg="-l walltime=$timearg" 
+			fi	
+			
+			#submit next job
+			qsub -t "" ${args} ${scriptdir}/pitfill_small.qsub
+			exit
+		fi
+	fi
 done
 
-#Finished looping though all input tiff files
-qsub ${scriptdir}/flowdirection_small.qsub
+echo "No more files to process"
+#Finished looping though all inputs.  Try Starting over.
+#qsub -t "" ${scriptdir}/flowdirection_small.qsub	
 
