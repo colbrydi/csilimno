@@ -34,8 +34,8 @@ do
 		FILESIZE=$(stat -c%s "$infile")
 		if [ $FILESIZE -gt 0 ]
 		then
-			time ( $cmd $infile ) 2> $timefile
-                        if [ "$!" -ne "0" ]
+			time ( $cmd $infile; ret=$! ) 2> $timefile
+                        if [ "$ret" -ne "0" ]
                         then
                                 echo "$cmd $infile"
                                 echo "Error Reported. Exiting"
@@ -55,7 +55,7 @@ do
 	
 			if [ $tm -gt $wtr ]
 			then
-				# TODO see if we may go over 4 hour walltime 
+				# see if we may go over 4 hour walltime 
 			        if [ $(( $tm * 2 )) -gt "$walltime" ]
 				then
 					timearg="08:00:00"
@@ -78,7 +78,7 @@ then
         echo "Total of $total files processed.  starting next stage"
         #Finished looping though all inputs.  Try Starting over.
 	cd ${PBS_O_WORKDIR}
-	qsub ${scriptdir}/d8flowdir.qsub	
+	qsub ${scriptdir}/d8flowdir_small.qsub	
 fi
 
 

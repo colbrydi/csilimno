@@ -1,5 +1,5 @@
 #!/bin/bash --login
-#PBS -l walltime=04:00:00,nodes=1:ppn=1,feature=gbe,mem=2gb
+#PBS -l walltime=04:00:00,nodes=48:ppn=1,mem=90gb
 #PBS -j oe
 #PBS -m e
 
@@ -8,10 +8,10 @@ cd ${PBS_O_WORKDIR}
 
 source /mnt/research/csilimno/dirk/csilimno/setup.sh
 
-cmd=d8flowdir
+cmd="d8flowdir"
 
 # sort by file size
-files=`ls -S -r ${workdir}/*fel.tif`
+files=`ls -S ${workdir}/*fel.tif`
 
 # Loop over source files
 for file in ${files}
@@ -39,8 +39,8 @@ do
 		echo "SIZE=$FILESIZE"
 		if [ $FILESIZE -gt 0 ]
 		then
-			time ( $cmd $infile ) 2> $timefile
-                        if [ "$!" -ne "0" ]
+			time ( mpirun $cmd $infile ) 2> $timefile
+			if [ "$!" -ne "0" ]
 			then	
 				echo "$cmd $infile"
 				echo "Error Reported. Exiting"
@@ -60,7 +60,7 @@ do
 
 			if [ $tm -gt $wtr ]
 			then
-				# TODO see if we may go over 4 hour walltime 
+				# see if we may go over 4 hour walltime 
 			        if [ $(( $tm * 2 )) -gt "$walltime" ]
 				then
 					cores="2"
@@ -69,7 +69,7 @@ do
 			
 				#submit next job
 				cd ${PBS_O_WORKDIR}
-				qsub -t "" ${args} ${scriptdir}/${cmd}_small.qsub
+				qsub -t "" ${args} ${scriptdir}/${cmd}_big.qsub
 				exit
 			fi
 		fi
@@ -84,6 +84,6 @@ then
         echo "Total of $total files processed.  starting next stage"
         #Finished looping though all inputs.  Try Starting over.
 	cd ${PBS_O_WORKDIR}
-        qsub ${scriptdir}/pitremove_small.qsub        
+        qsub ${scriptdir}/pitremove_big.qsub        
 fi
 

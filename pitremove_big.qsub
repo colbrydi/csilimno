@@ -1,17 +1,13 @@
 #!/bin/bash --login
-#PBS -l walltime=04:00:00,nodes=1:ppn=1,feature=gbe,mem=2gb
+#PBS -l walltime=03:59:00,nodes=8:ppn=1,mem=16gb
 #PBS -j oe
 #PBS -m e
 
-module load powertools
-cd ${PBS_O_WORKDIR}
-
 source /mnt/research/csilimno/dirk/csilimno/setup.sh
-
-cmd=d8flowdir
+cmd=pitremove
 
 # sort by file size
-files=`ls -S -r ${workdir}/*fel.tif`
+files=`ls -S  ${inputdir}/*.tif`
 
 # Loop over source files
 for file in ${files}
@@ -26,26 +22,25 @@ do
 
 	#Check next file
 	name=`basename $file`
-	root=${name%fel.tif}
-	felfile=${workdir}/${root}fel.tif
-	infile=${workdir}/${root}.tif	
-	outfile=${workdir}/${root}p.tif
+	root=${name%.tif}
+	outfile=${workdir}/${root}fel.tif	
+	infile=${workdir}/${name}
 	if [ ! -f ${outfile} ]
 	then
 		touch $outfile
 		echo ${outfile}
 		export TIMEFORMAT="%E"
-		FILESIZE=$(stat -c%s "$felfile")
-		echo "SIZE=$FILESIZE"
+		cp ${file} ${infile} 
+		FILESIZE=$(stat -c%s "$infile")
 		if [ $FILESIZE -gt 0 ]
 		then
-			time ( $cmd $infile ) 2> $timefile
-                        if [ "$!" -ne "0" ]
-			then	
-				echo "$cmd $infile"
-				echo "Error Reported. Exiting"
-				exit
-			fi
+			time ( mpirun $cmd $infile; ret=$! ) 2> $timefile
+                        if [ "$ret" -ne "0" ]
+                        then
+                                echo "$cmd $infile"
+                                echo "Error Reported. Exiting"
+                                exit
+                        fi
 
 			#Check time left
 			source /opt/software/powertools/doc/jobvars
@@ -57,25 +52,24 @@ do
 			echo "###FINISHED $cmd $file time=$tm size=$FILESIZE node=${HOSTNAME}"
 			total=$(( $total + 1 ))
 			echo "Last time $tm : wtr $wtr : walltime $walltime"
-
+	
 			if [ $tm -gt $wtr ]
 			then
 				# TODO see if we may go over 4 hour walltime 
 			        if [ $(( $tm * 2 )) -gt "$walltime" ]
 				then
-					cores="2"
-					arg="-l nodes=$cores:ppn=1" 
+					timearg="08:00:00"
+					arg="-l walltime=$timearg" 
 				fi	
-			
+				
 				#submit next job
 				cd ${PBS_O_WORKDIR}
-				qsub -t "" ${args} ${scriptdir}/${cmd}_small.qsub
+				qsub -t "" ${args} ${scriptdir}/${cmd}_big.qsub
 				exit
 			fi
 		fi
 	fi
 done
-
 
 echo "No more files to process"
 
@@ -84,6 +78,8 @@ then
         echo "Total of $total files processed.  starting next stage"
         #Finished looping though all inputs.  Try Starting over.
 	cd ${PBS_O_WORKDIR}
-        qsub ${scriptdir}/pitremove_small.qsub        
+	qsub ${scriptdir}/d8flowdir_big.qsub	
 fi
+
+
 
