@@ -1,7 +1,7 @@
 #!/bin/bash --login
-#PBS -l walltime=04:00:00,nodes=1:ppn=1,feature=gbe,mem=2gb
+#PBS -l walltime=04:00:00,nodes=1:ppn=1,feature=gbe,mem=4gb
 #PBS -j oe
-#PBS -m e
+#PBS -m a
 
 module load powertools
 cd ${PBS_O_WORKDIR}
@@ -11,8 +11,8 @@ source /mnt/research/csilimno/dirk/csilimno/setup.sh
 cmd=d8flowdir
 
 # sort by file size
-files=`ls -S -r ${workdir}/*fel.tif`
-
+files=`ls -S -r ${inputdir}/*.tif`
+total=`echo $files | wc -w`
 # Loop over source files
 for file in ${files}
 do
@@ -26,10 +26,10 @@ do
 
 	#Check next file
 	name=`basename $file`
-	root=${name%fel.tif}
-	felfile=${workdir}/${root}fel.tif
-	infile=${workdir}/${root}.tif	
-	outfile=${workdir}/${root}p.tif
+	root=${name%.tif}
+	felfile=${workdir}/${root}/${root}fel.tif
+	infile=${workdir}/${root}/${root}.tif	
+	outfile=${workdir}/${root}/${root}p.tif
 	if [ ! -f ${outfile} ]
 	then
 		touch $outfile
@@ -55,7 +55,7 @@ do
 			T=`tail -n 1 $timefile`
 			tm=$(( ${T%.*} * 2 ))
 			echo "###FINISHED $cmd $file time=$tm size=$FILESIZE node=${HOSTNAME}"
-			total=$(( $total + 1 ))
+			total=$(( $total - 1 ))
 			echo "Last time $tm : wtr $wtr : walltime $walltime"
 
 			if [ $tm -gt $wtr ]

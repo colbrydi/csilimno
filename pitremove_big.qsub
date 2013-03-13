@@ -1,7 +1,7 @@
 #!/bin/bash --login
 #PBS -l walltime=03:59:00,nodes=8:ppn=1,mem=16gb
 #PBS -j oe
-#PBS -m e
+#PBS -m a
 
 source /mnt/research/csilimno/dirk/csilimno/setup.sh
 cmd=pitremove
@@ -23,8 +23,10 @@ do
 	#Check next file
 	name=`basename $file`
 	root=${name%.tif}
-	outfile=${workdir}/${root}fel.tif	
-	infile=${workdir}/${name}
+	outfile=${workdir}/${root}/${root}fel.tif	
+	infile=${workdir}/${root}/${name}
+	mkdir -p ${workdir}/${root}
+
 	if [ ! -f ${outfile} ]
 	then
 		touch $outfile
@@ -73,13 +75,9 @@ done
 
 echo "No more files to process"
 
-if [ $total -gt 0 ]
-then
-        echo "Total of $total files processed.  starting next stage"
-        #Finished looping though all inputs.  Try Starting over.
-	cd ${PBS_O_WORKDIR}
-	qsub ${scriptdir}/d8flowdir_big.qsub	
-fi
+#Finished looping though all inputs.  Try Starting over.
+cd ${PBS_O_WORKDIR}
+qsub ${scriptdir}/d8flowdir_big.qsub	
 
 
 
